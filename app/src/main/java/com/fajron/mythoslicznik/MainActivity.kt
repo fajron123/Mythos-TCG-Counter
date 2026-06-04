@@ -1,7 +1,6 @@
 package com.fajron.mythoslicznik
 
 import android.os.Bundle
-import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -46,7 +45,7 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = Color(0xFF121212)
+                    color = Color(0xFF0A0A0A)
                 ) {
                     GameCounterScreen()
                 }
@@ -63,7 +62,7 @@ fun GameCounterScreen() {
     var chakra2 by remember { mutableStateOf(5) }
     var mission2 by remember { mutableStateOf(0) }
 
-    // Kto ma edge (1 lub 2)
+    // Kto ma edge
     var edgePlayer by remember { mutableStateOf(1) }
 
     // Zmienne od timera
@@ -84,6 +83,28 @@ fun GameCounterScreen() {
     val minutes = timeLeft / 60
     val seconds = timeLeft % 60
     val timeString = String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
+
+    // zmiana kolorow jak sie czas konczy
+    val (themeCardColor, themeAlertColor) = when {
+        timeLeft <= 60 -> {
+            // minuta do konca
+            Pair(Color(0xFF3D1616), Color(0xFFEF5350))
+        }
+        timeLeft <= 300 -> {
+            // 5 min do konca
+            Pair(Color(0xFF2B1B10), Color(0xFFB05C1D))
+        }
+        else -> {
+            Pair(Color(0xFF1E1E1E), Color.Transparent)
+        }
+    }
+
+    // Kolor samego tekstu zegara
+    val timerTextColor = when {
+        timeLeft <= 60 -> Color(0xFFFF8A80)
+        timeLeft <= 300 -> Color(0xFFFFCC80)
+        else -> Color.White
+    }
 
     // Funkcja czyszcząca stan gry
     fun resetGame() {
@@ -122,12 +143,14 @@ fun GameCounterScreen() {
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Gracz 1
+        // Gracz 2
         PlayerSection(
             playerName = "Player 2",
             chakra = chakra1,
             missionPoints = mission1,
             hasEdge = edgePlayer == 1,
+            cardColor = themeCardColor,
+            alertColor = themeAlertColor,
             onChakraChange = { chakra1 = it },
             onChakraReset = { chakra1 = 5 },
             onMissionChange = { mission1 = it },
@@ -165,7 +188,7 @@ fun GameCounterScreen() {
                     text = timeString,
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White,
+                    color = timerTextColor,
                     modifier = Modifier.padding(end = 8.dp)
                 )
                 Button(
@@ -178,12 +201,14 @@ fun GameCounterScreen() {
             }
         }
 
-        // DÓŁ
+        // Gracz 1
         PlayerSection(
             playerName = "Player 1",
             chakra = chakra2,
             missionPoints = mission2,
             hasEdge = edgePlayer == 2,
+            cardColor = themeCardColor,
+            alertColor = themeAlertColor,
             onChakraChange = { chakra2 = it },
             onChakraReset = { chakra2 = 5 },
             onMissionChange = { mission2 = it },
@@ -201,20 +226,27 @@ fun PlayerSection(
     chakra: Int,
     missionPoints: Int,
     hasEdge: Boolean,
+    cardColor: Color,    // Przyjmujemy dynamiczny kolor tła panelu
+    alertColor: Color,   // Przyjmujemy dynamiczny kolor ostrzeżenia czasu
     onChakraChange: (Int) -> Unit,
     onChakraReset: () -> Unit,
     onMissionChange: (Int) -> Unit,
     onEdgeClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Ramka robi się żółta, gdy gracz ma Edge
-    val borderColor = if (hasEdge) Color.Yellow else Color.Transparent
-    val borderWidth = if (hasEdge) 3.dp else 0.dp
+    // Jeśli gracz ma Edge, ramka jest żółta. Jeśli nie, ale trwa alarm czasowy, ramka przyjmuje kolor alarmu.
+    val borderColor = when {
+        hasEdge -> Color.Yellow
+        alertColor != Color.Transparent -> alertColor
+        else -> Color.Transparent
+    }
+
+    val borderWidth = if (hasEdge || alertColor != Color.Transparent) 3.dp else 0.dp
 
     Column(
         modifier = modifier
             .border(borderWidth, borderColor, RoundedCornerShape(12.dp))
-            .background(Color(0xFF1E1E1E), RoundedCornerShape(12.dp))
+            .background(cardColor, RoundedCornerShape(12.dp)) // Dynamiczne tło panelu
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
@@ -242,7 +274,7 @@ fun PlayerSection(
             }
         }
 
-        // liczniki
+        // Liczniki
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -327,7 +359,6 @@ fun PlayerSection(
                     ) { Text("+", fontSize = 20.sp) }
                 }
 
-                // Odstęp dla wyrównania z resetem chakry
                 Spacer(modifier = Modifier.height(30.dp))
             }
         }
