@@ -8,6 +8,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
@@ -69,6 +71,7 @@ fun GameCounterScreen() {
     var timeLeft by remember { mutableStateOf(30 * 60) }
     var isTimerRunning by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
+    var showTimeDialog by remember { mutableStateOf(false) }
 
     // Odliczanie czasu
     LaunchedEffect(isTimerRunning) {
@@ -137,6 +140,82 @@ fun GameCounterScreen() {
         )
     }
 
+    // Pop-up do ustawiania własnego timera
+    if (showTimeDialog) {
+        var customMinutesInput by remember { mutableStateOf("") }
+        var inputError by remember { mutableStateOf(false) }
+
+        AlertDialog(
+            onDismissRequest = { showTimeDialog = false },
+            title = { Text("Set Match Timer") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Select a preset or enter a custom duration:", color = Color.Gray)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val presets = listOf(30, 45, 60)
+                        presets.forEach { minutesPreset ->
+                            Button(
+                                onClick = {
+                                    timeLeft = minutesPreset * 60
+                                    isTimerRunning = false
+                                    showTimeDialog = false
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("${minutesPreset}m", color = Color.White)
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = Color.DarkGray)
+
+                    OutlinedTextField(
+                        value = customMinutesInput,
+                        onValueChange = {
+                            customMinutesInput = it
+                            inputError = false
+                        },
+                        label = { Text("Custom minutes") },
+                        placeholder = { Text("e.g. 15") },
+                        singleLine = true,
+                        isError = inputError,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (inputError) {
+                        Text("Please enter a valid number of minutes", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val enteredMinutes = customMinutesInput.toIntOrNull()
+                        if (enteredMinutes != null && enteredMinutes > 0) {
+                            timeLeft = enteredMinutes * 60
+                            isTimerRunning = false
+                            showTimeDialog = false
+                        } else {
+                            inputError = true
+                        }
+                    }
+                ) {
+                    Text("Apply", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimeDialog = false }) {
+                    Text("Cancel", color = Color.Gray)
+                }
+            }
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -172,15 +251,15 @@ fun GameCounterScreen() {
             Button(
                 onClick = { showResetDialog = true },
                 colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray),
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(0.9f)
             ) {
                 Text("RESET", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(12.dp))
 
             Row(
-                modifier = Modifier.weight(1.5f),
+                modifier = Modifier.weight(1.8f),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.End
             ) {
@@ -189,8 +268,21 @@ fun GameCounterScreen() {
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
                     color = timerTextColor,
-                    modifier = Modifier.padding(end = 8.dp)
+                    modifier = Modifier
+                        .clickable { showTimeDialog = true } // Kliknięcie w sam czas też otworzy menu
+                        .padding(end = 8.dp)
                 )
+
+                // przycisk do konfiguracji czasu
+                Button(
+                    onClick = { showTimeDialog = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF333333)),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                    modifier = Modifier.padding(end = 6.dp)
+                ) {
+                    Text("Set", color = Color.White, fontSize = 12.sp)
+                }
+
                 Button(
                     onClick = { isTimerRunning = !isTimerRunning },
                     colors = ButtonDefaults.buttonColors(containerColor = if (isTimerRunning) Color(0xFFE57373) else Color(0xFF81C784)),
@@ -226,15 +318,14 @@ fun PlayerSection(
     chakra: Int,
     missionPoints: Int,
     hasEdge: Boolean,
-    cardColor: Color,    // Przyjmujemy dynamiczny kolor tła panelu
-    alertColor: Color,   // Przyjmujemy dynamiczny kolor ostrzeżenia czasu
+    cardColor: Color,
+    alertColor: Color,
     onChakraChange: (Int) -> Unit,
     onChakraReset: () -> Unit,
     onMissionChange: (Int) -> Unit,
     onEdgeClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Jeśli gracz ma Edge, ramka jest żółta. Jeśli nie, ale trwa alarm czasowy, ramka przyjmuje kolor alarmu.
     val borderColor = when {
         hasEdge -> Color.Yellow
         alertColor != Color.Transparent -> alertColor
@@ -246,12 +337,11 @@ fun PlayerSection(
     Column(
         modifier = modifier
             .border(borderWidth, borderColor, RoundedCornerShape(12.dp))
-            .background(cardColor, RoundedCornerShape(12.dp)) // Dynamiczne tło panelu
+            .background(cardColor, RoundedCornerShape(12.dp))
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // Nazwa gracza i przycisk Edge
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -274,7 +364,6 @@ fun PlayerSection(
             }
         }
 
-        // Liczniki
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -282,7 +371,6 @@ fun PlayerSection(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Licznik Chakry
             Column(
                 modifier = Modifier.weight(1f),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -325,7 +413,6 @@ fun PlayerSection(
                 }
             }
 
-            // Licznik punktów misji
             Column(
                 modifier = Modifier.weight(1f),
                 horizontalAlignment = Alignment.CenterHorizontally,
