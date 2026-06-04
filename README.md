@@ -1,6 +1,6 @@
-# Mythos TCG Counter
+# Mythos TCG Tracker
 
-A lightweight match counter fspecifically tailored for Mythos TCG, built natively for Android using **Jetpack Compose**
+A lightweight match tracker specifically tailored for Mythos TCG, built natively for Android using **Jetpack Compose**
 
 This app is designed for two players sharing a single device at a game table.
 
